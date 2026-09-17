@@ -1,0 +1,491 @@
+{
+  "version": "Notebook/1.0",
+  "items": [
+    {
+      "type": 1,
+      "content": {
+        "json": "# Azure update and software inventory\nSCCM-inspired reporting from Change Tracking and Inventory data in Log Analytics."
+      },
+      "name": "header"
+    },
+    {
+      "type": 9,
+      "content": {
+        "version": "KqlParameterItem/1.0",
+        "parameters": [
+          {
+            "id": "5f95e04f-c6a8-4594-bbf2-732224322b61",
+            "version": "KqlParameterItem/1.0",
+            "name": "Workspace",
+            "label": "Log Analytics workspace",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "where type =~ \"microsoft.operationalinsights/workspaces\"\n| project id, name\n| sort by name asc",
+            "crossComponentResources": [
+              "value::all"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": []
+            },
+            "queryType": 1,
+            "resourceType": "microsoft.resourcegraph/resources",
+            "value": [
+              "__WORKSPACE_RESOURCE_ID__"
+            ]
+          },
+          {
+            "id": "610f6fa4-f1f0-4c4d-93d2-bd7086628034",
+            "version": "KqlParameterItem/1.0",
+            "name": "AzureSubscription",
+            "label": "Azure subscription",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\"\n| parse _ResourceId with \"/subscriptions/\" AzureSubscriptionId \"/\" *\n| where isnotempty(AzureSubscriptionId)\n| distinct AzureSubscriptionId\n| project value = AzureSubscriptionId, label = AzureSubscriptionId\n| sort by label asc",
+            "crossComponentResources": [
+              "{Workspace}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ]
+            },
+            "timeContext": {
+              "durationMs": 94608000000
+            },
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces",
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "id": "4056cde7-f676-4824-9d70-79885899eeda",
+            "version": "KqlParameterItem/1.0",
+            "name": "ResourceGroup",
+            "label": "Resource group",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\"\n| parse _ResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/\" *\n| where \"*\" in~ ({AzureSubscription}) or AzureSubscriptionId in~ ({AzureSubscription})\n| where isnotempty(AzureResourceGroup)\n| distinct AzureResourceGroup\n| project value = AzureResourceGroup, label = AzureResourceGroup\n| sort by label asc",
+            "crossComponentResources": [
+              "{Workspace}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ]
+            },
+            "timeContext": {
+              "durationMs": 94608000000
+            },
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces",
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "id": "6527dce5-df3f-4f30-a4dd-dc4800e741bb",
+            "version": "KqlParameterItem/1.0",
+            "name": "Region",
+            "label": "Region",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "let InventoryResources = ConfigurationData\n| where ConfigDataType =~ \"Software\"\n| extend ResourceId = tolower(_ResourceId)\n| parse ResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/\" *\n| where \"*\" in~ ({AzureSubscription}) or AzureSubscriptionId in~ ({AzureSubscription})\n| where \"*\" in~ ({ResourceGroup}) or AzureResourceGroup in~ ({ResourceGroup})\n| distinct ResourceId;\narg(\"\").Resources\n| where type in~ (\"microsoft.compute/virtualmachines\", \"microsoft.hybridcompute/machines\")\n| project ResourceId = tolower(id), Region = location\n| join kind=inner InventoryResources on ResourceId\n| where isnotempty(Region)\n| distinct Region\n| project value = Region, label = Region\n| sort by label asc",
+            "crossComponentResources": [
+              "{Workspace}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ]
+            },
+            "timeContext": {
+              "durationMs": 94608000000
+            },
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces",
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "id": "24fe38ca-f587-4273-98d0-98ce72cff2cc",
+            "version": "KqlParameterItem/1.0",
+            "name": "ResourceType",
+            "label": "Resource type",
+            "type": 2,
+            "isRequired": true,
+            "jsonData": "[{\"value\":\"'*'\",\"label\":\"All\"},{\"value\":\"'Azure VM'\",\"label\":\"Azure VM\"},{\"value\":\"'Arc server'\",\"label\":\"Arc server\"}]",
+            "value": "'*'"
+          },
+          {
+            "id": "b1e7c9a2-3d4f-4a6b-8c1e-9f2a5d7e0c34",
+            "version": "KqlParameterItem/1.0",
+            "name": "OperatingSystem",
+            "label": "Operating system",
+            "description": "Scopes the baseline compliance section to machines running the selected OS, so a KB is only evaluated where it applies.",
+            "type": 5,
+            "isRequired": true,
+            "multiSelect": true,
+            "quote": "'",
+            "delimiter": ",",
+            "query": "Heartbeat\n| where TimeGenerated > ago(30d)\n| where OSType =~ \"Windows\"\n| where isnotempty(OSName)\n| distinct OSName\n| project value = OSName, label = OSName\n| sort by label asc",
+            "crossComponentResources": [
+              "{Workspace}"
+            ],
+            "typeSettings": {
+              "additionalResourceOptions": [
+                "value::all"
+              ]
+            },
+            "timeContext": {
+              "durationMs": 2592000000
+            },
+            "queryType": 0,
+            "resourceType": "microsoft.operationalinsights/workspaces",
+            "value": [
+              "value::all"
+            ]
+          },
+          {
+            "id": "2dd0f518-6916-49ea-a92f-87fc13142a98",
+            "version": "KqlParameterItem/1.0",
+            "name": "TimeRange",
+            "label": "History range",
+            "type": 4,
+            "isRequired": true,
+            "typeSettings": {
+              "selectableValues": [
+                {
+                  "durationMs": 2592000000
+                },
+                {
+                  "durationMs": 7776000000
+                },
+                {
+                  "durationMs": 15552000000
+                },
+                {
+                  "durationMs": 31536000000
+                },
+                {
+                  "durationMs": 63072000000
+                }
+              ],
+              "allowCustom": true
+            },
+            "timeContext": {
+              "durationMs": 7776000000
+            },
+            "value": {
+              "durationMs": 7776000000
+            }
+          },
+          {
+            "id": "79cc279d-2037-4ae7-ad41-a8527205ad8e",
+            "version": "KqlParameterItem/1.0",
+            "name": "InventoryFreshness",
+            "label": "Current inventory window",
+            "type": 2,
+            "isRequired": true,
+            "jsonData": "[{\"value\":\"1d\",\"label\":\"24 hours\"},{\"value\":\"2d\",\"label\":\"2 days\"},{\"value\":\"7d\",\"label\":\"7 days\"},{\"value\":\"14d\",\"label\":\"14 days\"}]",
+            "value": "2d"
+          },
+          {
+            "id": "ad4bd442-f183-42c7-a8a9-4a0676910f20",
+            "version": "KqlParameterItem/1.0",
+            "name": "RequiredKBs",
+            "label": "Required KB baseline",
+            "type": 1,
+            "isRequired": false,
+            "quote": "'",
+            "value": ""
+          },
+          {
+            "id": "d8825c22-3097-4272-90f5-19756913b3fa",
+            "version": "KqlParameterItem/1.0",
+            "name": "ComputerSearch",
+            "label": "Computer contains",
+            "type": 1,
+            "isRequired": false,
+            "quote": "'",
+            "value": ""
+          },
+          {
+            "id": "83b43a99-f447-408e-a02e-f8840fd34149",
+            "version": "KqlParameterItem/1.0",
+            "name": "SoftwareSearch",
+            "label": "Software contains",
+            "type": 1,
+            "isRequired": false,
+            "quote": "'",
+            "value": ""
+          }
+        ],
+        "style": "pills",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces"
+      },
+      "name": "report-parameters"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let FilteredSoftware = materialize(\n    ConfigurationData\n    | where ConfigDataType =~ \"Software\"\n    | extend NormalizedResourceId = tolower(_ResourceId)\n    | parse NormalizedResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/providers/\" AzureResourceProvider \"/\" AzureResourceKind \"/\" *\n    | extend AzureResourceType = case(AzureResourceProvider =~ \"microsoft.compute\" and AzureResourceKind =~ \"virtualmachines\", \"Azure VM\", AzureResourceProvider =~ \"microsoft.hybridcompute\" and AzureResourceKind =~ \"machines\", \"Arc server\", \"Other\")\n    | where \"*\" in~ ({AzureSubscription}) or AzureSubscriptionId in~ ({AzureSubscription})\n    | where \"*\" in~ ({ResourceGroup}) or AzureResourceGroup in~ ({ResourceGroup})\n    | where \"*\" =~ {ResourceType} or AzureResourceType =~ {ResourceType}\n    | where \"*\" in~ ({Region}) or NormalizedResourceId in (arg(\"\").Resources | where location in~ ({Region}) | project NormalizedResourceId = tolower(id))\n);\nlet MachineInventory = materialize(\n    FilteredSoftware\n    | summarize LastInventory = max(TimeGenerated) by Computer\n);\nlet CurrentSoftware = materialize(\n    FilteredSoftware\n    | where TimeGenerated >= ago({InventoryFreshness})\n);\nunion\n    (MachineInventory | summarize Value = count() | extend Metric = \"Reporting computers\"),\n    (MachineInventory | summarize Value = countif(LastInventory >= ago({InventoryFreshness})) | extend Metric = \"Current inventory\"),\n    (MachineInventory | summarize Value = countif(LastInventory < ago({InventoryFreshness})) | extend Metric = \"Stale inventory\"),\n    (CurrentSoftware | summarize Value = dcountif(strcat(Computer, \"|\", SoftwareName), SoftwareType =~ \"Patch\") | extend Metric = \"Installed update records\")\n| project Metric, Value",
+        "size": 4,
+        "title": "Inventory summary",
+        "timeContext": {
+          "durationMs": 94608000000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {
+            "columnMatch": "Metric",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "Value",
+            "formatter": 12,
+            "formatOptions": {
+              "palette": "auto"
+            }
+          },
+          "showBorder": true
+        }
+      },
+      "name": "inventory-summary"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Inventory health\nComparable to SCCM scan-state and inventory-recency reports."
+      },
+      "name": "inventory-health-heading"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\"\n| extend NormalizedResourceId = tolower(_ResourceId)\n| parse NormalizedResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/providers/\" AzureResourceProvider \"/\" AzureResourceKind \"/\" *\n| extend AzureResourceType = case(AzureResourceProvider =~ \"microsoft.compute\" and AzureResourceKind =~ \"virtualmachines\", \"Azure VM\", AzureResourceProvider =~ \"microsoft.hybridcompute\" and AzureResourceKind =~ \"machines\", \"Arc server\", \"Other\")\n| where \"*\" in~ ({AzureSubscription}) or AzureSubscriptionId in~ ({AzureSubscription})\n| where \"*\" in~ ({ResourceGroup}) or AzureResourceGroup in~ ({ResourceGroup})\n| where \"*\" =~ {ResourceType} or AzureResourceType =~ {ResourceType}\n| where \"*\" in~ ({Region}) or NormalizedResourceId in (arg(\"\").Resources | where location in~ ({Region}) | project NormalizedResourceId = tolower(id))\n| summarize LastInventory = max(TimeGenerated), ResourceId = take_any(_ResourceId), SubscriptionId = take_any(AzureSubscriptionId), ResourceGroup = take_any(AzureResourceGroup), ResourceType = take_any(AzureResourceType) by Computer\n| where isempty('{ComputerSearch}') or Computer contains '{ComputerSearch}'\n| extend InventoryAgeDays = datetime_diff(\"day\", now(), LastInventory)\n| extend InventoryState = iff(LastInventory >= ago({InventoryFreshness}), \"Current\", \"Stale\")\n| project Computer, InventoryState, LastInventory, InventoryAgeDays, SubscriptionId, ResourceGroup, ResourceType, ResourceId\n| sort by InventoryState asc, LastInventory desc",
+        "size": 0,
+        "title": "Inventory state by computer",
+        "timeContext": {
+          "durationMs": 94608000000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "rowLimit": 8000
+        }
+      },
+      "name": "inventory-health"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Baseline compliance\n<span style=\"color:red\"><b><u>Disclaimer: This section returns no results unless you enter one or more KBs in the Required KB baseline filter.</u></b></span>\n\n> **Applicability-aware:** Enter comma-separated KB identifiers, such as `KB5030219,KB5030310`. Only machines where a baseline KB **applies** are shown: applicability = installed (Change Tracking inventory) or pending (Azure Update Manager assessment). A machine is **Noncompliant** when a baseline KB is assessed as needed but not installed, **Compliant** when installed, and excluded when the KB neither applies nor is pending. Use the **Operating system** filter to scope to the OS a KB targets."
+      },
+      "name": "baseline-compliance-heading"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let Baseline = materialize(print Items = split('{RequiredKBs}', \",\")\n| mv-expand RequiredKB = Items to typeof(string)\n| extend RequiredKB = toupper(replace_string(RequiredKB, \" \", \"\"))\n| where RequiredKB matches regex @\"^KB[0-9]{6,8}$\"\n| distinct RequiredKB);\nlet InScopeMachines = materialize(ConfigurationData\n| where ConfigDataType =~ \"Software\"\n| extend NormalizedResourceId = tolower(_ResourceId)\n| parse NormalizedResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/providers/\" AzureResourceProvider \"/\" AzureResourceKind \"/\" *\n| extend AzureResourceType = case(AzureResourceProvider =~ \"microsoft.compute\" and AzureResourceKind =~ \"virtualmachines\", \"Azure VM\", AzureResourceProvider =~ \"microsoft.hybridcompute\" and AzureResourceKind =~ \"machines\", \"Arc server\", \"Other\")\n| where \"*\" in~ ({AzureSubscription}) or AzureSubscriptionId in~ ({AzureSubscription})\n| where \"*\" in~ ({ResourceGroup}) or AzureResourceGroup in~ ({ResourceGroup})\n| where \"*\" =~ {ResourceType} or AzureResourceType =~ {ResourceType}\n| where \"*\" in~ ({Region}) or NormalizedResourceId in (arg(\"\").Resources | where location in~ ({Region}) | project NormalizedResourceId = tolower(id))\n| extend NormalizedComputer = tolower(iff(Computer has \".\", substring(Computer, 0, indexof(Computer, \".\")), Computer))\n| where \"*\" in~ ({OperatingSystem}) or NormalizedComputer in (Heartbeat | where TimeGenerated > ago(30d) | where OSName in~ ({OperatingSystem}) | project NC = tolower(iff(Computer has \".\", substring(Computer, 0, indexof(Computer, \".\")), Computer)) | distinct NC)\n| where isempty('{ComputerSearch}') or Computer contains '{ComputerSearch}'\n| where TimeGenerated >= ago({InventoryFreshness})\n| summarize LastInventory = max(TimeGenerated), ResourceId = take_any(_ResourceId) by NormalizedComputer, Computer);\nlet InstalledPairs = materialize(ConfigurationData\n| where ConfigDataType =~ \"Software\" and SoftwareType =~ \"Patch\"\n| where TimeGenerated >= ago({InventoryFreshness})\n| extend KB = toupper(extract(@\"KB[0-9]{6,8}\", 0, SoftwareName))\n| where isnotempty(KB)\n| extend NormalizedComputer = tolower(iff(Computer has \".\", substring(Computer, 0, indexof(Computer, \".\")), Computer))\n| project PairKey = strcat(NormalizedComputer, \"|\", KB)\n| distinct PairKey);\nlet Evaluated = materialize(InScopeMachines\n| extend JoinKey = 1\n| join kind=inner (Baseline | extend JoinKey = 1) on JoinKey\n| extend PairKey = strcat(NormalizedComputer, \"|\", RequiredKB)\n| extend IsInstalled = PairKey in (InstalledPairs)\n| extend IsPending = PairKey in (arg(\"\").patchassessmentresources | where type endswith \"/softwarepatches\" | extend AssessId = tolower(id) | parse AssessId with \"/subscriptions/\" a \"/resourcegroups/\" b \"/providers/\" c \"/\" d \"/\" ServerName \"/patchassessmentresults/\" * | where isnotempty(properties.kbId) | project PairKey = strcat(tolower(ServerName), \"|\", toupper(strcat(\"KB\", tostring(properties.kbId)))))\n| extend AppliesTo = IsInstalled or IsPending\n| where AppliesTo);\nlet Compliance = Evaluated\n| summarize MissingUpdates = countif(IsPending and not(IsInstalled)) by NormalizedComputer\n| extend ComplianceState = iff(MissingUpdates == 0, \"Compliant\", \"Noncompliant\");\nunion\n    (print Value = todouble(toscalar(Baseline | count)) | extend Metric = \"Baseline updates\"),\n    (Compliance | summarize Value = todouble(countif(ComplianceState == \"Compliant\")) | extend Metric = \"Compliant computers\"),\n    (Compliance | summarize Value = todouble(countif(ComplianceState == \"Noncompliant\")) | extend Metric = \"Noncompliant computers\"),\n    (Compliance | summarize Total = count(), CompliantCount = countif(ComplianceState == \"Compliant\") | project Value = iff(Total == 0, 0.0, round(100.0 * CompliantCount / Total, 1)) | extend Metric = \"Compliance percent\")\n| project Metric, Value",
+        "size": 3,
+        "title": "Compliance 1 - Overall compliance",
+        "timeContext": {
+          "durationMs": 94608000000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "tiles",
+        "tileSettings": {
+          "titleContent": {
+            "columnMatch": "Metric",
+            "formatter": 1
+          },
+          "leftContent": {
+            "columnMatch": "Value",
+            "formatter": 12,
+            "formatOptions": {
+              "palette": "auto"
+            }
+          },
+          "showBorder": true
+        }
+      },
+      "name": "overall-baseline-compliance"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "let Baseline = materialize(print Items = split('{RequiredKBs}', \",\")\n| mv-expand RequiredKB = Items to typeof(string)\n| extend RequiredKB = toupper(replace_string(RequiredKB, \" \", \"\"))\n| where RequiredKB matches regex @\"^KB[0-9]{6,8}$\"\n| distinct RequiredKB);\nlet InScopeMachines = materialize(ConfigurationData\n| where ConfigDataType =~ \"Software\"\n| extend NormalizedResourceId = tolower(_ResourceId)\n| parse NormalizedResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/providers/\" AzureResourceProvider \"/\" AzureResourceKind \"/\" *\n| extend AzureResourceType = case(AzureResourceProvider =~ \"microsoft.compute\" and AzureResourceKind =~ \"virtualmachines\", \"Azure VM\", AzureResourceProvider =~ \"microsoft.hybridcompute\" and AzureResourceKind =~ \"machines\", \"Arc server\", \"Other\")\n| where \"*\" in~ ({AzureSubscription}) or AzureSubscriptionId in~ ({AzureSubscription})\n| where \"*\" in~ ({ResourceGroup}) or AzureResourceGroup in~ ({ResourceGroup})\n| where \"*\" =~ {ResourceType} or AzureResourceType =~ {ResourceType}\n| where \"*\" in~ ({Region}) or NormalizedResourceId in (arg(\"\").Resources | where location in~ ({Region}) | project NormalizedResourceId = tolower(id))\n| extend NormalizedComputer = tolower(iff(Computer has \".\", substring(Computer, 0, indexof(Computer, \".\")), Computer))\n| where \"*\" in~ ({OperatingSystem}) or NormalizedComputer in (Heartbeat | where TimeGenerated > ago(30d) | where OSName in~ ({OperatingSystem}) | project NC = tolower(iff(Computer has \".\", substring(Computer, 0, indexof(Computer, \".\")), Computer)) | distinct NC)\n| where isempty('{ComputerSearch}') or Computer contains '{ComputerSearch}'\n| where TimeGenerated >= ago({InventoryFreshness})\n| summarize LastInventory = max(TimeGenerated), ResourceId = take_any(_ResourceId) by NormalizedComputer, Computer);\nlet InstalledPairs = materialize(ConfigurationData\n| where ConfigDataType =~ \"Software\" and SoftwareType =~ \"Patch\"\n| where TimeGenerated >= ago({InventoryFreshness})\n| extend KB = toupper(extract(@\"KB[0-9]{6,8}\", 0, SoftwareName))\n| where isnotempty(KB)\n| extend NormalizedComputer = tolower(iff(Computer has \".\", substring(Computer, 0, indexof(Computer, \".\")), Computer))\n| project PairKey = strcat(NormalizedComputer, \"|\", KB)\n| distinct PairKey);\nlet Evaluated = materialize(InScopeMachines\n| extend JoinKey = 1\n| join kind=inner (Baseline | extend JoinKey = 1) on JoinKey\n| extend PairKey = strcat(NormalizedComputer, \"|\", RequiredKB)\n| extend IsInstalled = PairKey in (InstalledPairs)\n| extend IsPending = PairKey in (arg(\"\").patchassessmentresources | where type endswith \"/softwarepatches\" | extend AssessId = tolower(id) | parse AssessId with \"/subscriptions/\" a \"/resourcegroups/\" b \"/providers/\" c \"/\" d \"/\" ServerName \"/patchassessmentresults/\" * | where isnotempty(properties.kbId) | project PairKey = strcat(tolower(ServerName), \"|\", toupper(strcat(\"KB\", tostring(properties.kbId)))))\n| extend AppliesTo = IsInstalled or IsPending\n| where AppliesTo);\nEvaluated\n| summarize RequiredUpdates = countif(AppliesTo), InstalledUpdates = countif(IsInstalled), MissingUpdates = countif(IsPending and not(IsInstalled)), MissingKBs = make_set_if(RequiredKB, IsPending and not(IsInstalled)), LastInventory = max(LastInventory), ResourceId = take_any(ResourceId) by Computer\n| extend ComplianceState = iff(MissingUpdates == 0, \"Compliant\", \"Noncompliant\")\n| project Computer, ComplianceState, RequiredUpdates, InstalledUpdates, MissingUpdates, MissingKBs, LastInventory, ResourceId\n| sort by ComplianceState asc, Computer asc",
+        "size": 0,
+        "title": "Compliance 5 and 7 - Computer compliance details",
+        "timeContext": {
+          "durationMs": 94608000000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "rowLimit": 8000
+        }
+      },
+      "name": "computer-baseline-compliance"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Installed update inventory\nInventory equivalents for SCCM per-update and per-computer reports. Dates are observation times from `ConfigurationData`, not deployment timestamps."
+      },
+      "name": "installed-updates-heading"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\" and SoftwareType =~ \"Patch\"\n| where TimeGenerated >= ago({InventoryFreshness})\n| extend NormalizedResourceId = tolower(_ResourceId)\n| parse NormalizedResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/providers/\" AzureResourceProvider \"/\" AzureResourceKind \"/\" *\n| extend AzureResourceType = case(AzureResourceProvider =~ \"microsoft.compute\" and AzureResourceKind =~ \"virtualmachines\", \"Azure VM\", AzureResourceProvider =~ \"microsoft.hybridcompute\" and AzureResourceKind =~ \"machines\", \"Arc server\", \"Other\")\n| where \"*\" in~ ({AzureSubscription}) or AzureSubscriptionId in~ ({AzureSubscription})\n| where \"*\" in~ ({ResourceGroup}) or AzureResourceGroup in~ ({ResourceGroup})\n| where \"*\" =~ {ResourceType} or AzureResourceType =~ {ResourceType}\n| where \"*\" in~ ({Region}) or NormalizedResourceId in (arg(\"\").Resources | where location in~ ({Region}) | project NormalizedResourceId = tolower(id))\n| where isempty('{ComputerSearch}') or Computer contains '{ComputerSearch}'\n| where isempty('{SoftwareSearch}') or SoftwareName contains '{SoftwareSearch}'\n| extend KB = toupper(extract(@\"KB[0-9]{6,8}\", 0, SoftwareName))\n| extend UpdateIdentity = iff(isempty(KB), SoftwareName, KB)\n| summarize arg_max(TimeGenerated, SoftwareName, CurrentVersion, Publisher, Architecture) by Computer, UpdateIdentity\n| summarize InstalledComputers = dcount(Computer), Titles = make_set(SoftwareName, 5), Versions = make_set(CurrentVersion, 5), LastObserved = max(TimeGenerated) by UpdateIdentity, Publisher\n| project UpdateIdentity, Publisher, InstalledComputers, Titles, Versions, LastObserved\n| sort by InstalledComputers desc, UpdateIdentity asc",
+        "size": 0,
+        "title": "Compliance 2 and 3 - Installed update summary",
+        "timeContext": {
+          "durationMs": 94608000000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "rowLimit": 8000
+        }
+      },
+      "name": "installed-update-summary"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\" and SoftwareType =~ \"Patch\"\n| extend NormalizedResourceId = tolower(_ResourceId)\n| parse NormalizedResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/providers/\" AzureResourceProvider \"/\" AzureResourceKind \"/\" *\n| extend AzureResourceType = case(AzureResourceProvider =~ \"microsoft.compute\" and AzureResourceKind =~ \"virtualmachines\", \"Azure VM\", AzureResourceProvider =~ \"microsoft.hybridcompute\" and AzureResourceKind =~ \"machines\", \"Arc server\", \"Other\")\n| where \"*\" in~ ({AzureSubscription}) or AzureSubscriptionId in~ ({AzureSubscription})\n| where \"*\" in~ ({ResourceGroup}) or AzureResourceGroup in~ ({ResourceGroup})\n| where \"*\" =~ {ResourceType} or AzureResourceType =~ {ResourceType}\n| where \"*\" in~ ({Region}) or NormalizedResourceId in (arg(\"\").Resources | where location in~ ({Region}) | project NormalizedResourceId = tolower(id))\n| where isempty('{ComputerSearch}') or Computer contains '{ComputerSearch}'\n| extend KB = toupper(extract(@\"KB[0-9]{6,8}\", 0, SoftwareName))\n| where isnotempty(KB)\n| summarize FirstObserved = min(TimeGenerated), LastObserved = max(TimeGenerated) by Computer, KB\n| summarize Computers = dcount(Computer), Updates = dcount(KB) by bin(FirstObserved, 7d)\n| sort by FirstObserved asc",
+        "size": 0,
+        "title": "Historical update adoption by first observation",
+        "timeContextFromParameter": "TimeRange",
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "timechart"
+      },
+      "name": "update-adoption-history"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\" and SoftwareType =~ \"Patch\"\n| where TimeGenerated >= ago({InventoryFreshness})\n| extend NormalizedResourceId = tolower(_ResourceId)\n| parse NormalizedResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/providers/\" AzureResourceProvider \"/\" AzureResourceKind \"/\" *\n| extend AzureResourceType = case(AzureResourceProvider =~ \"microsoft.compute\" and AzureResourceKind =~ \"virtualmachines\", \"Azure VM\", AzureResourceProvider =~ \"microsoft.hybridcompute\" and AzureResourceKind =~ \"machines\", \"Arc server\", \"Other\")\n| where \"*\" in~ ({AzureSubscription}) or AzureSubscriptionId in~ ({AzureSubscription})\n| where \"*\" in~ ({ResourceGroup}) or AzureResourceGroup in~ ({ResourceGroup})\n| where \"*\" =~ {ResourceType} or AzureResourceType =~ {ResourceType}\n| where \"*\" in~ ({Region}) or NormalizedResourceId in (arg(\"\").Resources | where location in~ ({Region}) | project NormalizedResourceId = tolower(id))\n| where isempty('{ComputerSearch}') or Computer contains '{ComputerSearch}'\n| where isempty('{SoftwareSearch}') or SoftwareName contains '{SoftwareSearch}'\n| extend KB = toupper(extract(@\"KB[0-9]{6,8}\", 0, SoftwareName))\n| summarize arg_max(TimeGenerated, *) by Computer, SoftwareName, CurrentVersion\n| extend Architecture = iff(isempty(Architecture), case(SoftwareName has \"x64\" or SoftwareName has \"amd64\" or SoftwareName has \"64-bit\", \"x64\", SoftwareName has \"x86\" or SoftwareName has \"32-bit\", \"x86\", \"\"), Architecture)\n| project Computer, KB, SoftwareName, CurrentVersion, Publisher, Architecture, LastObserved = TimeGenerated, ResourceId = _ResourceId\n| sort by Computer asc, KB desc",
+        "size": 0,
+        "title": "Compliance 5 - Installed updates by computer",
+        "timeContext": {
+          "durationMs": 94608000000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "rowLimit": 8000
+        }
+      },
+      "name": "installed-updates-by-computer"
+    },
+    {
+      "type": 1,
+      "content": {
+        "json": "## Software inventory\nComparable to SCCM Software 01A, 02D, 02E, and 06A reports."
+      },
+      "name": "software-inventory-heading"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\" and SoftwareType in~ (\"Application\", \"Package\")\n| where TimeGenerated >= ago({InventoryFreshness})\n| extend NormalizedResourceId = tolower(_ResourceId)\n| parse NormalizedResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/providers/\" AzureResourceProvider \"/\" AzureResourceKind \"/\" *\n| extend AzureResourceType = case(AzureResourceProvider =~ \"microsoft.compute\" and AzureResourceKind =~ \"virtualmachines\", \"Azure VM\", AzureResourceProvider =~ \"microsoft.hybridcompute\" and AzureResourceKind =~ \"machines\", \"Arc server\", \"Other\")\n| where \"*\" in~ ({AzureSubscription}) or AzureSubscriptionId in~ ({AzureSubscription})\n| where \"*\" in~ ({ResourceGroup}) or AzureResourceGroup in~ ({ResourceGroup})\n| where \"*\" =~ {ResourceType} or AzureResourceType =~ {ResourceType}\n| where \"*\" in~ ({Region}) or NormalizedResourceId in (arg(\"\").Resources | where location in~ ({Region}) | project NormalizedResourceId = tolower(id))\n| where isempty('{ComputerSearch}') or Computer contains '{ComputerSearch}'\n| where isempty('{SoftwareSearch}') or SoftwareName contains '{SoftwareSearch}'\n| summarize arg_max(TimeGenerated, Publisher, Architecture, CurrentVersion) by Computer, SoftwareName\n| extend Publisher = iff(isempty(Publisher), \"Unknown\", Publisher)\n| extend Architecture = iff(isempty(Architecture), case(SoftwareName has \"x64\" or SoftwareName has \"amd64\" or SoftwareName has \"64-bit\", \"x64\", SoftwareName has \"x86\" or SoftwareName has \"32-bit\", \"x86\", \"\"), Architecture)\n| summarize InstalledComputers = dcount(Computer), Versions = make_set(CurrentVersion, 8), Architectures = make_set(Architecture, 4), LastObserved = max(TimeGenerated) by SoftwareName, Publisher\n| project SoftwareName, Publisher, InstalledComputers, Versions, Architectures, LastObserved\n| top 1000 by InstalledComputers desc",
+        "size": 0,
+        "title": "Software 01A and 06A - Installed software summary",
+        "timeContext": {
+          "durationMs": 94608000000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "rowLimit": 8000
+        }
+      },
+      "name": "installed-software-summary"
+    },
+    {
+      "type": 3,
+      "content": {
+        "version": "KqlItem/1.0",
+        "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\" and SoftwareType in~ (\"Application\", \"Package\")\n| where TimeGenerated >= ago({InventoryFreshness})\n| extend NormalizedResourceId = tolower(_ResourceId)\n| parse NormalizedResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/providers/\" AzureResourceProvider \"/\" AzureResourceKind \"/\" *\n| extend AzureResourceType = case(AzureResourceProvider =~ \"microsoft.compute\" and AzureResourceKind =~ \"virtualmachines\", \"Azure VM\", AzureResourceProvider =~ \"microsoft.hybridcompute\" and AzureResourceKind =~ \"machines\", \"Arc server\", \"Other\")\n| where \"*\" in~ ({AzureSubscription}) or AzureSubscriptionId in~ ({AzureSubscription})\n| where \"*\" in~ ({ResourceGroup}) or AzureResourceGroup in~ ({ResourceGroup})\n| where \"*\" =~ {ResourceType} or AzureResourceType =~ {ResourceType}\n| where \"*\" in~ ({Region}) or NormalizedResourceId in (arg(\"\").Resources | where location in~ ({Region}) | project NormalizedResourceId = tolower(id))\n| where isempty('{ComputerSearch}') or Computer contains '{ComputerSearch}'\n| where isempty('{SoftwareSearch}') or SoftwareName contains '{SoftwareSearch}'\n| summarize arg_max(TimeGenerated, *) by Computer, SoftwareName, CurrentVersion\n| project Computer, SoftwareName, CurrentVersion, Publisher, Architecture, SoftwareDescription, LastObserved = TimeGenerated, ResourceId = _ResourceId\n| sort by Computer asc, SoftwareName asc",
+        "size": 0,
+        "title": "Software 02D and 02E - Software by computer",
+        "timeContext": {
+          "durationMs": 94608000000
+        },
+        "queryType": 0,
+        "resourceType": "microsoft.operationalinsights/workspaces",
+        "crossComponentResources": [
+          "{Workspace}"
+        ],
+        "visualization": "table",
+        "gridSettings": {
+          "rowLimit": 8000
+        }
+      },
+      "name": "installed-software-by-computer"
+    }
+  ],
+  "fallbackResourceIds": [
+    "__WORKSPACE_RESOURCE_ID__"
+  ],
+  "isLocked": false
+}

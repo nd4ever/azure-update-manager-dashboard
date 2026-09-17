@@ -1,0 +1,4 @@
+.azure/
+.build/
+infra/main.bicepparam
+*.local.bicepparam
