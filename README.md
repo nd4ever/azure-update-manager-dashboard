@@ -32,6 +32,7 @@ The Grafana dashboard includes:
 * Inventory state by computer
 * Installed update summary and adoption history
 * Installed software summary and per-computer detail
+* Drill-through links from table cells to Azure Monitor Logs
 * Interactive freshness, computer, software, and time-range filters
 
 ## Data boundary
@@ -62,8 +63,10 @@ contract.
 * Permission to deploy shared Workbooks, such as Workbook Contributor plus the
   required resource-group deployment permissions
 * Azure CLI with Bicep support for local deployment
+* PowerShell 7 or newer to run the dashboard import script
 * Azure CLI `amg` extension for Grafana dashboard import
 * Grafana Admin on the target Managed Grafana workspace
+* An Azure Monitor data source in the target Managed Grafana workspace (provided by default in Azure Managed Grafana)
 
 Creating Grafana role assignments also requires
 `Microsoft.Authorization/roleAssignments/write`, such as User Access Administrator
@@ -137,9 +140,12 @@ import. Run it for either a new or existing workspace:
   -LogAnalyticsWorkspaceResourceId '<log-analytics-workspace-resource-id>'
 ```
 
-The script resolves the immutable Log Analytics workspace ID, replaces the checked-in
+The script validates the workspace resource ID you supply, derives its subscription,
+and resolves the workspace's Azure Monitor data source. It then substitutes the
 dashboard placeholders, imports with overwrite enabled, verifies the stable dashboard
-UID, and removes its temporary file.
+UID, and removes its temporary file. When the workspace has more than one Azure Monitor
+data source, the script selects the default one, or the first by name when none is
+marked default.
 
 ## Project structure
 
@@ -147,6 +153,7 @@ UID, and removes its temporary file.
 .github/workflows/validate.yml
 grafana/azure-update-manager.dashboard.json
 infra/main.bicep
+infra/main.json
 infra/main.sample.bicepparam
 infra/modules/log-analytics-monitoring-reader.bicep
 scripts/Import-GrafanaDashboard.ps1
