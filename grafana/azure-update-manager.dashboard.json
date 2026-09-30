@@ -824,6 +824,84 @@
       ],
       "title": "Software by computer",
       "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": { "h": 1, "w": 24, "x": 0, "y": 54 },
+      "id": 15,
+      "panels": [],
+      "title": "Baseline compliance",
+      "type": "row"
+    },
+    {
+      "datasource": { "type": "grafana", "uid": "-- Grafana --" },
+      "gridPos": { "h": 4, "w": 24, "x": 0, "y": 55 },
+      "id": 16,
+      "options": { "content": "Enter one or more KB identifiers in the **Required KB baseline** filter, for example `KB5030219,KB5030310`. Compliance is evaluated from installed inventory in `ConfigurationData`: a computer is **Compliant** when every required KB is installed and **Noncompliant** when one or more are missing. Azure Update Manager assessment data (`patchassessmentresources`) is not evaluated here, so applicability is not considered and a KB that does not apply to a machine still counts as missing. Use the **Computer contains** filter to scope machines and the **Compliance state** filter to slice the details table.", "mode": "markdown" },
+      "title": "",
+      "type": "text"
+    },
+    {
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "__AZURE_MONITOR_DATASOURCE_UID__" },
+      "fieldConfig": {
+        "defaults": {
+          "color": { "mode": "thresholds" },
+          "mappings": [],
+          "thresholds": { "mode": "absolute", "steps": [ { "color": "blue", "value": null } ] }
+        },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "Compliant computers" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "green" } } ] },
+          { "matcher": { "id": "byName", "options": "Noncompliant computers" }, "properties": [ { "id": "color", "value": { "mode": "fixed", "fixedColor": "red" } } ] },
+          { "matcher": { "id": "byName", "options": "Compliance percent" }, "properties": [ { "id": "unit", "value": "percent" }, { "id": "thresholds", "value": { "mode": "absolute", "steps": [ { "color": "red", "value": null }, { "color": "yellow", "value": 90 }, { "color": "green", "value": 100 } ] } } ] }
+        ]
+      },
+      "gridPos": { "h": 6, "w": 24, "x": 0, "y": 59 },
+      "id": 17,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "horizontal",
+        "reduceOptions": { "calcs": [ "lastNotNull" ], "fields": "", "values": false },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "azureLogAnalytics": { "query": "let Baseline = materialize(print Items = split(${requiredKBs:singlequote}, ',')\n| mv-expand RequiredKB = Items to typeof(string)\n| extend RequiredKB = toupper(replace_string(RequiredKB, ' ', ''))\n| where RequiredKB matches regex @'^KB[0-9]{6,8}$'\n| distinct RequiredKB);\nlet InstalledPairs = materialize(ConfigurationData\n| where ConfigDataType =~ 'Software' and SoftwareType =~ 'Patch'\n| where TimeGenerated >= ago(${inventoryFreshness:raw})\n| extend KB = toupper(extract(@'KB[0-9]{6,8}', 0, SoftwareName))\n| where isnotempty(KB)\n| extend NormalizedComputer = tolower(iff(Computer has '.', substring(Computer, 0, indexof(Computer, '.')), Computer))\n| distinct PairKey = strcat(NormalizedComputer, '|', KB));\nlet InScopeMachines = materialize(ConfigurationData\n| where ConfigDataType =~ 'Software'\n| where TimeGenerated >= ago(${inventoryFreshness:raw})\n| where isempty(${computerSearch:singlequote}) or Computer contains ${computerSearch:singlequote}\n| extend NormalizedComputer = tolower(iff(Computer has '.', substring(Computer, 0, indexof(Computer, '.')), Computer))\n| summarize LastInventory = max(TimeGenerated) by NormalizedComputer);\nlet Compliance = materialize(InScopeMachines\n| extend JoinKey = 1\n| join kind=inner (Baseline | extend JoinKey = 1) on JoinKey\n| extend PairKey = strcat(NormalizedComputer, '|', RequiredKB)\n| extend IsInstalled = PairKey in (InstalledPairs)\n| summarize MissingUpdates = countif(not(IsInstalled)) by NormalizedComputer\n| extend ComplianceState = iff(MissingUpdates == 0, 'Compliant', 'Noncompliant'));\nlet CompliantCount = toscalar(Compliance | summarize c = countif(ComplianceState == 'Compliant'));\nlet TotalCount = toscalar(Compliance | summarize c = count());\nprint ['Baseline updates'] = toscalar(Baseline | summarize c = dcount(RequiredKB)), ['Compliant computers'] = CompliantCount, ['Noncompliant computers'] = toscalar(Compliance | summarize c = countif(ComplianceState == 'Noncompliant')), ['Compliance percent'] = iff(TotalCount == 0, 0.0, round(100.0 * CompliantCount / TotalCount, 1))", "resultFormat": "table", "resources": [ "$workspaceResourceId" ] },
+          "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "__AZURE_MONITOR_DATASOURCE_UID__" },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "$subscription"
+        }
+      ],
+      "title": "Overall compliance",
+      "type": "stat"
+    },
+    {
+      "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "__AZURE_MONITOR_DATASOURCE_UID__" },
+      "fieldConfig": {
+        "defaults": { "custom": { "align": "auto", "cellOptions": { "type": "auto" }, "inspect": false }, "mappings": [], "thresholds": { "mode": "absolute", "steps": [ { "color": "green", "value": null } ] } },
+        "overrides": [
+          { "matcher": { "id": "byName", "options": "ComplianceState" }, "properties": [ { "id": "custom.cellOptions", "value": { "type": "color-text" } }, { "id": "mappings", "value": [ { "type": "value", "options": { "Compliant": { "color": "green", "index": 0 }, "Noncompliant": { "color": "red", "index": 1 } } } ] } ] }
+        ]
+      },
+      "gridPos": { "h": 11, "w": 24, "x": 0, "y": 65 },
+      "id": 18,
+      "options": { "cellHeight": "sm", "footer": { "countRows": false, "fields": "", "reducer": [ "sum" ], "show": false }, "showHeader": true },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "azureLogAnalytics": { "query": "let Baseline = materialize(print Items = split(${requiredKBs:singlequote}, ',')\n| mv-expand RequiredKB = Items to typeof(string)\n| extend RequiredKB = toupper(replace_string(RequiredKB, ' ', ''))\n| where RequiredKB matches regex @'^KB[0-9]{6,8}$'\n| distinct RequiredKB);\nlet InstalledPairs = materialize(ConfigurationData\n| where ConfigDataType =~ 'Software' and SoftwareType =~ 'Patch'\n| where TimeGenerated >= ago(${inventoryFreshness:raw})\n| extend KB = toupper(extract(@'KB[0-9]{6,8}', 0, SoftwareName))\n| where isnotempty(KB)\n| extend NormalizedComputer = tolower(iff(Computer has '.', substring(Computer, 0, indexof(Computer, '.')), Computer))\n| distinct PairKey = strcat(NormalizedComputer, '|', KB));\nlet InScopeMachines = materialize(ConfigurationData\n| where ConfigDataType =~ 'Software'\n| where TimeGenerated >= ago(${inventoryFreshness:raw})\n| where isempty(${computerSearch:singlequote}) or Computer contains ${computerSearch:singlequote}\n| extend NormalizedComputer = tolower(iff(Computer has '.', substring(Computer, 0, indexof(Computer, '.')), Computer))\n| summarize Computer = take_any(Computer), LastInventory = max(TimeGenerated) by NormalizedComputer);\nInScopeMachines\n| extend JoinKey = 1\n| join kind=inner (Baseline | extend JoinKey = 1) on JoinKey\n| extend PairKey = strcat(NormalizedComputer, '|', RequiredKB)\n| extend IsInstalled = PairKey in (InstalledPairs)\n| summarize RequiredUpdates = count(), InstalledUpdates = countif(IsInstalled), MissingUpdates = countif(not(IsInstalled)), MissingKBs = make_set_if(RequiredKB, not(IsInstalled)), LastInventory = take_any(LastInventory), Computer = take_any(Computer) by NormalizedComputer\n| extend ComplianceState = iff(MissingUpdates == 0, 'Compliant', 'Noncompliant')\n| where ComplianceState in (${complianceState:singlequote})\n| project Computer, ComplianceState, RequiredUpdates, InstalledUpdates, MissingUpdates, MissingKBs, LastInventory\n| sort by ComplianceState asc, Computer asc", "resultFormat": "table", "resources": [ "$workspaceResourceId" ] },
+          "datasource": { "type": "grafana-azure-monitor-datasource", "uid": "__AZURE_MONITOR_DATASOURCE_UID__" },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "$subscription"
+        }
+      ],
+      "title": "Computer compliance details",
+      "type": "table"
     }
   ],
   "refresh": "30m",
@@ -926,6 +1004,32 @@
         "query": "",
         "skipUrlSync": false,
         "type": "textbox"
+      },
+      {
+        "current": { "selected": true, "text": "", "value": "" },
+        "hide": 0,
+        "label": "Required KB baseline",
+        "name": "requiredKBs",
+        "options": [],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": { "selected": true, "text": [ "All" ], "value": [ "$__all" ] },
+        "hide": 0,
+        "includeAll": true,
+        "label": "Compliance state",
+        "multi": true,
+        "name": "complianceState",
+        "options": [
+          { "selected": true, "text": "All", "value": "$__all" },
+          { "selected": false, "text": "Compliant", "value": "Compliant" },
+          { "selected": false, "text": "Noncompliant", "value": "Noncompliant" }
+        ],
+        "query": "Compliant,Noncompliant",
+        "skipUrlSync": false,
+        "type": "custom"
       }
     ]
   },
