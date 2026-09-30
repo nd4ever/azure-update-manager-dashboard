@@ -32,8 +32,9 @@ The Grafana dashboard includes:
 * Inventory state by computer
 * Installed update summary and adoption history
 * Installed software summary and per-computer detail
+* Inventory-based baseline compliance against a user-supplied KB list
 * Drill-through links from table cells to Azure Monitor Logs
-* Interactive freshness, computer, software, and time-range filters
+* Interactive KB baseline, freshness, computer, software, and time-range filters
 
 ## Data boundary
 
@@ -47,8 +48,13 @@ The Grafana dashboard includes:
 > Workbook baseline reports combine installed update inventory with Azure Resource
 > Graph `patchassessmentresources` to determine whether a user-supplied KB is
 > installed or pending. This is not equivalent to deployment or enforcement state.
-> The Grafana dashboard remains inventory-only and does not present baseline
-> compliance.
+> The Grafana baseline compliance section is inventory-based only: it marks a
+> computer compliant when every required KB appears in installed inventory and
+> noncompliant otherwise. It cannot use `patchassessmentresources`, because Azure
+> Resource Graph is not reachable through the Log Analytics query path Grafana uses,
+> so it does not evaluate applicability. A required KB that does not apply to a
+> machine still counts as missing there; use the KB baseline and computer filters to
+> scope results.
 
 The historical chart reports when an update was first observed in inventory. It does
 not claim that this timestamp is the installation time. Change events belong in the
