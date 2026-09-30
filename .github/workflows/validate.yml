@@ -12,17 +12,14 @@ permissions:
 
 jobs:
   validate:
-    name: Workbook and Bicep
+    name: Workbook, Grafana, and Bicep
     runs-on: ubuntu-latest
 
     steps:
       - name: Check out repository
         uses: actions/checkout@v4
 
-      - name: Set up Bicep
-        uses: azure/setup-bicep@v2
-
-      - name: Validate Workbook JSON and data source
+      - name: Validate dashboard contracts
         shell: pwsh
         run: |
           $workbook = Get-Content -Raw workbook/azure-update-manager.workbook.json | ConvertFrom-Json
@@ -42,13 +39,71 @@ jobs:
             throw 'Every query must use the Log Analytics ConfigurationData table.'
           }
 
-          $forbiddenTables = 'patchassessmentresources|patchinstallationresources|maintenanceresources'
+          $baselineQueryNames = @(
+            'overall-baseline-compliance'
+            'computer-baseline-compliance'
+          )
+          $invalidResourceGraphQueries = @($queries | Where-Object {
+            $_.name -notin $baselineQueryNames -and
+            $_.content.query -match '\bpatchassessmentresources\b'
+          })
+          if ($invalidResourceGraphQueries.Count -gt 0) {
+            throw 'Only baseline compliance queries may use patchassessmentresources.'
+          }
+
+          $forbiddenTables = 'patchinstallationresources|maintenanceresources'
           if (($queries.content.query -join "`n") -match $forbiddenTables) {
-            throw 'Azure Resource Graph Update Manager tables are not allowed in this Workbook.'
+            throw 'Installation and maintenance resource tables are outside the Workbook data contract.'
+          }
+
+          $grafana = Get-Content -Raw grafana/azure-update-manager.dashboard.json | ConvertFrom-Json
+          if ([string]::IsNullOrWhiteSpace($grafana.uid)) {
+            throw 'The Grafana dashboard must define a stable uid.'
+          }
+
+          $grafanaTargets = @($grafana.panels | ForEach-Object { @($_.targets) }) |
+            Where-Object { $null -ne $_ }
+          if ($grafanaTargets.Count -eq 0) {
+            throw 'The Grafana dashboard must contain at least one query target.'
+          }
+
+          $invalidGrafanaTargets = @($grafanaTargets | Where-Object {
+            $_.queryType -cne 'Azure Log Analytics' -or
+            $_.datasource.type -cne 'grafana-azure-monitor-datasource' -or
+            $_.azureLogAnalytics.query -notmatch '\bConfigurationData\b'
+          })
+          if ($invalidGrafanaTargets.Count -gt 0) {
+            throw 'Every Grafana query must use Azure Monitor Logs and ConfigurationData.'
+          }
+
+          $grafanaSource = Get-Content -Raw grafana/azure-update-manager.dashboard.json
+          foreach ($placeholder in @('__AZURE_SUBSCRIPTION_ID__', '__LOG_ANALYTICS_WORKSPACE_RESOURCE_ID__', '__AZURE_MONITOR_DATASOURCE_UID__')) {
+            if ($grafanaSource -notmatch $placeholder) {
+              throw "The Grafana dashboard is missing placeholder $placeholder."
+            }
+          }
+
+          if ($grafanaSource -match '\$\{DS_AZURE_MONITOR\}') {
+            throw 'The Grafana dashboard must not contain unresolved datasource inputs.'
+          }
+
+      - name: Validate PowerShell syntax
+        shell: pwsh
+        run: |
+          $tokens = $null
+          $errors = $null
+          [System.Management.Automation.Language.Parser]::ParseFile(
+            (Resolve-Path scripts/Import-GrafanaDashboard.ps1),
+            [ref]$tokens,
+            [ref]$errors
+          ) | Out-Null
+
+          if ($errors.Count -gt 0) {
+            throw ($errors | ForEach-Object Message) -join "`n"
           }
 
       - name: Build Bicep
         shell: bash
         run: |
           mkdir -p .build
-          bicep build infra/main.bicep --outfile .build/main.json
+          az bicep build --file infra/main.bicep --outfile .build/main.json
