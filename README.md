@@ -36,6 +36,48 @@ The Grafana dashboard includes:
 * Drill-through links from table cells to Azure Monitor Logs
 * Interactive KB baseline, freshness, computer, software, and time-range filters
 
+## Data sources
+
+Both surfaces read Change Tracking and Inventory data from Log Analytics. The
+Workbook additionally queries Azure Resource Graph for scoping and update
+assessment. The Grafana dashboard does not.
+
+| Data source | Provides | Used by |
+|-------------|----------|---------|
+| Change Tracking and Inventory in Log Analytics (`ConfigurationData`) | Installed updates, installed software, applications, and packages | Workbook and Grafana |
+| Log Analytics `Heartbeat` | Operating system names for the operating system filter | Workbook |
+| Azure Resource Graph `Resources` | Workspace selection and resource region filtering | Workbook |
+| Azure Resource Graph `patchassessmentresources` | Azure Update Manager pending-update assessment for applicability-aware baseline compliance | Workbook |
+
+### Which report reads from which source
+
+Every Workbook report is built on Change Tracking and Inventory
+(`ConfigurationData`). Azure Resource Graph is layered on top: the `Resources`
+table backs the region filter on every report, and `patchassessmentresources`
+backs only the two baseline compliance reports.
+
+| Workbook report | Change Tracking and Inventory | Azure Resource Graph |
+|-----------------|-------------------------------|----------------------|
+| Inventory summary | Inventory records | `Resources` for the region filter |
+| Inventory state by computer | Inventory records | `Resources` for the region filter |
+| Overall compliance | Installed updates | `patchassessmentresources` for pending updates, plus `Resources` for the region filter |
+| Computer compliance details | Installed updates | `patchassessmentresources` for pending updates, plus `Resources` for the region filter |
+| Installed update summary | Installed updates | `Resources` for the region filter |
+| Historical update adoption | Installed updates | `Resources` for the region filter |
+| Installed updates by computer | Installed updates | `Resources` for the region filter |
+| Installed software summary | Installed software | `Resources` for the region filter |
+| Software by computer | Installed software | `Resources` for the region filter |
+
+The baseline compliance reports also read Log Analytics `Heartbeat` for the
+operating system filter. Among the filters, the workspace picker and region filter
+query Azure Resource Graph, the operating system filter queries `Heartbeat`, and the
+rest are static choices or free text.
+
+Every Grafana panel queries `ConfigurationData` only. Grafana uses no Azure Resource
+Graph, because `arg()` cross-service queries are not available through the Log
+Analytics query API that the Grafana Azure Monitor data source uses. Its baseline
+compliance is therefore inventory-only.
+
 ## Data boundary
 
 `ConfigurationData` contains discovered inventory. The Workbook uses records where
