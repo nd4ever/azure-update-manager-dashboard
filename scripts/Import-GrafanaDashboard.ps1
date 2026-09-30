@@ -1,5 +1,5 @@
 #!/usr/bin/env pwsh
-# Copyright (c) Microsoft Corporation.
+# Copyright (c) 2026 nd4ever
 # SPDX-License-Identifier: MIT
 #Requires -Version 7.0
 
