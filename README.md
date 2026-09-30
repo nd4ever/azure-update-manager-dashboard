@@ -168,3 +168,7 @@ workbook/azure-update-manager.workbook.json
 * [Create or import Azure Managed Grafana dashboards](https://learn.microsoft.com/azure/managed-grafana/how-to-create-dashboard)
 * [Configure Managed Grafana access to Azure Monitor](https://learn.microsoft.com/azure/managed-grafana/how-to-permissions)
 * [Azure Workbooks data sources](https://learn.microsoft.com/azure/azure-monitor/visualize/workbooks-data-sources)
+
+## License
+
+This project is licensed under the MIT License. See [LICENSE](./LICENSE) for details.
