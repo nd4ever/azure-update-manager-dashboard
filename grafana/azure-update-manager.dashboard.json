@@ -1,0 +1,952 @@
+{
+  "__requires": [
+    {
+      "type": "grafana",
+      "id": "grafana",
+      "name": "Grafana",
+      "version": "11.0.0"
+    },
+    {
+      "type": "datasource",
+      "id": "grafana-azure-monitor-datasource",
+      "name": "Azure Monitor",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "stat",
+      "name": "Stat",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "table",
+      "name": "Table",
+      "version": ""
+    },
+    {
+      "type": "panel",
+      "id": "timeseries",
+      "name": "Time series",
+      "version": ""
+    }
+  ],
+  "annotations": {
+    "list": [
+      {
+        "builtIn": 1,
+        "datasource": {
+          "type": "grafana",
+          "uid": "-- Grafana --"
+        },
+        "enable": true,
+        "hide": true,
+        "iconColor": "rgba(0, 211, 255, 1)",
+        "name": "Annotations and alerts",
+        "type": "dashboard"
+      }
+    ]
+  },
+  "description": "Azure Update Manager software update and inventory reporting from Log Analytics ConfigurationData.",
+  "editable": true,
+  "fiscalYearStartMonth": 0,
+  "graphTooltip": 1,
+  "id": null,
+  "links": [],
+  "liveNow": false,
+  "panels": [
+    {
+      "datasource": {
+        "type": "grafana",
+        "uid": "-- Grafana --"
+      },
+      "gridPos": {
+        "h": 4,
+        "w": 24,
+        "x": 0,
+        "y": 0
+      },
+      "id": 1,
+      "options": {
+        "content": "# Azure update and software inventory\n\nSCCM-inspired reporting from Change Tracking and Inventory data in Log Analytics. Inventory freshness is controlled independently from the dashboard history range.",
+        "mode": "markdown"
+      },
+      "title": "",
+      "type": "text"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 4
+      },
+      "id": 2,
+      "panels": [],
+      "title": "Inventory overview",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "blue",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 0,
+        "y": 5
+      },
+      "id": 3,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Value$/",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\"\n| summarize Value = dcount(Computer)",
+            "resultFormat": "table",
+            "resources": [ "$workspaceResourceId" ]
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "$subscription"
+        }
+      ],
+      "title": "Reporting computers",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 6,
+        "y": 5
+      },
+      "id": 4,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Value$/",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\"\n| summarize LastInventory = max(TimeGenerated) by Computer\n| summarize Value = countif(LastInventory >= ago(${inventoryFreshness:raw}))",
+            "resultFormat": "table",
+            "resources": [ "$workspaceResourceId" ]
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "$subscription"
+        }
+      ],
+      "title": "Current inventory",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              },
+              {
+                "color": "red",
+                "value": 1
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 12,
+        "y": 5
+      },
+      "id": 5,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Value$/",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\"\n| summarize LastInventory = max(TimeGenerated) by Computer\n| summarize Value = countif(LastInventory < ago(${inventoryFreshness:raw}))",
+            "resultFormat": "table",
+            "resources": [ "$workspaceResourceId" ]
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "$subscription"
+        }
+      ],
+      "title": "Stale inventory",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "thresholds"
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "purple",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 5,
+        "w": 6,
+        "x": 18,
+        "y": 5
+      },
+      "id": 6,
+      "options": {
+        "colorMode": "value",
+        "graphMode": "none",
+        "justifyMode": "auto",
+        "orientation": "auto",
+        "reduceOptions": {
+          "calcs": [
+            "lastNotNull"
+          ],
+          "fields": "/^Value$/",
+          "values": false
+        },
+        "textMode": "auto",
+        "wideLayout": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\" and SoftwareType =~ \"Patch\"\n| where TimeGenerated >= ago(${inventoryFreshness:raw})\n| summarize Value = dcount(strcat(Computer, \"|\", SoftwareName))",
+            "resultFormat": "table",
+            "resources": [ "$workspaceResourceId" ]
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "$subscription"
+        }
+      ],
+      "title": "Installed update records",
+      "type": "stat"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "line",
+            "fillOpacity": 20,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 2,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 9,
+        "w": 24,
+        "x": 0,
+        "y": 10
+      },
+      "id": 7,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\"\n| where $__timeFilter(TimeGenerated)\n| summarize ReportingComputers = dcount(Computer) by bin(TimeGenerated, $__interval)\n| sort by TimeGenerated asc",
+            "resultFormat": "time_series",
+            "resources": [ "$workspaceResourceId" ]
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "$subscription"
+        }
+      ],
+      "title": "Inventory reporting trend",
+      "type": "timeseries"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 10,
+        "w": 24,
+        "x": 0,
+        "y": 19
+      },
+      "id": 8,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\"\n| extend NormalizedResourceId = tolower(_ResourceId)\n| parse NormalizedResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/providers/\" AzureResourceProvider \"/\" AzureResourceKind \"/\" *\n| extend AzureResourceType = case(AzureResourceProvider =~ \"microsoft.compute\" and AzureResourceKind =~ \"virtualmachines\", \"Azure VM\", AzureResourceProvider =~ \"microsoft.hybridcompute\" and AzureResourceKind =~ \"machines\", \"Arc server\", \"Other\")\n| summarize LastInventory = max(TimeGenerated), ResourceId = take_any(_ResourceId), SubscriptionId = take_any(AzureSubscriptionId), ResourceGroup = take_any(AzureResourceGroup), ResourceType = take_any(AzureResourceType) by Computer\n| where isempty(${computerSearch:singlequote}) or Computer contains ${computerSearch:singlequote}\n| extend InventoryAgeDays = datetime_diff(\"day\", now(), LastInventory)\n| extend InventoryState = iff(LastInventory >= ago(${inventoryFreshness:raw}), \"Current\", \"Stale\")\n| project Computer, InventoryState, LastInventory, InventoryAgeDays, SubscriptionId, ResourceGroup, ResourceType, ResourceId\n| sort by InventoryState asc, LastInventory desc",
+            "resultFormat": "table",
+            "resources": [ "$workspaceResourceId" ]
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "$subscription"
+        }
+      ],
+      "title": "Inventory state by computer",
+      "type": "table"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 29
+      },
+      "id": 9,
+      "panels": [],
+      "title": "Installed update inventory",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 14,
+        "x": 0,
+        "y": 30
+      },
+      "id": 10,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\" and SoftwareType =~ \"Patch\"\n| where TimeGenerated >= ago(${inventoryFreshness:raw})\n| where isempty(${computerSearch:singlequote}) or Computer contains ${computerSearch:singlequote}\n| where isempty(${softwareSearch:singlequote}) or SoftwareName contains ${softwareSearch:singlequote}\n| extend KB = toupper(extract(@\"KB[0-9]{6,8}\", 0, SoftwareName))\n| extend UpdateIdentity = iff(isempty(KB), SoftwareName, KB)\n| summarize arg_max(TimeGenerated, SoftwareName, CurrentVersion, Publisher, Architecture) by Computer, UpdateIdentity\n| summarize InstalledComputers = dcount(Computer), Titles = make_set(SoftwareName, 5), Versions = make_set(CurrentVersion, 5), LastObserved = max(TimeGenerated) by UpdateIdentity, Publisher\n| project UpdateIdentity, Publisher, InstalledComputers, Titles, Versions, LastObserved\n| sort by InstalledComputers desc, UpdateIdentity asc",
+            "resultFormat": "table",
+            "resources": [ "$workspaceResourceId" ]
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "$subscription"
+        }
+      ],
+      "title": "Installed update summary",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "color": {
+            "mode": "palette-classic"
+          },
+          "custom": {
+            "axisCenteredZero": false,
+            "axisColorMode": "text",
+            "axisLabel": "",
+            "axisPlacement": "auto",
+            "barAlignment": 0,
+            "drawStyle": "bars",
+            "fillOpacity": 40,
+            "gradientMode": "none",
+            "hideFrom": {
+              "legend": false,
+              "tooltip": false,
+              "viz": false
+            },
+            "lineInterpolation": "linear",
+            "lineWidth": 1,
+            "pointSize": 5,
+            "scaleDistribution": {
+              "type": "linear"
+            },
+            "showPoints": "never",
+            "spanNulls": false,
+            "stacking": {
+              "group": "A",
+              "mode": "none"
+            },
+            "thresholdsStyle": {
+              "mode": "off"
+            }
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 11,
+        "w": 10,
+        "x": 14,
+        "y": 30
+      },
+      "id": 11,
+      "options": {
+        "legend": {
+          "calcs": [],
+          "displayMode": "list",
+          "placement": "bottom",
+          "showLegend": true
+        },
+        "tooltip": {
+          "mode": "multi",
+          "sort": "none"
+        }
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\" and SoftwareType =~ \"Patch\"\n| where $__timeFilter(TimeGenerated)\n| where isempty(${computerSearch:singlequote}) or Computer contains ${computerSearch:singlequote}\n| extend KB = toupper(extract(@\"KB[0-9]{6,8}\", 0, SoftwareName))\n| where isnotempty(KB)\n| summarize FirstObserved = min(TimeGenerated) by Computer, KB\n| summarize Computers = dcount(Computer) by bin(FirstObserved, 7d)\n| sort by FirstObserved asc",
+            "resultFormat": "time_series",
+            "resources": [ "$workspaceResourceId" ]
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "$subscription"
+        }
+      ],
+      "title": "Update adoption by first observation",
+      "type": "timeseries"
+    },
+    {
+      "collapsed": false,
+      "gridPos": {
+        "h": 1,
+        "w": 24,
+        "x": 0,
+        "y": 41
+      },
+      "id": 12,
+      "panels": [],
+      "title": "Software inventory",
+      "type": "row"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 0,
+        "y": 42
+      },
+      "id": 13,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\" and SoftwareType in~ (\"Application\", \"Package\")\n| where TimeGenerated >= ago(${inventoryFreshness:raw})\n| where isempty(${softwareSearch:singlequote}) or SoftwareName contains ${softwareSearch:singlequote}\n| summarize arg_max(TimeGenerated, Publisher, CurrentVersion) by Computer, SoftwareName\n| summarize InstalledComputers = dcount(Computer), Versions = make_set(CurrentVersion, 10), LastObserved = max(TimeGenerated) by SoftwareName, Publisher\n| project SoftwareName, Publisher, InstalledComputers, Versions, LastObserved\n| sort by InstalledComputers desc, SoftwareName asc",
+            "resultFormat": "table",
+            "resources": [ "$workspaceResourceId" ]
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "$subscription"
+        }
+      ],
+      "title": "Installed software summary",
+      "type": "table"
+    },
+    {
+      "datasource": {
+        "type": "grafana-azure-monitor-datasource",
+        "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+      },
+      "fieldConfig": {
+        "defaults": {
+          "custom": {
+            "align": "auto",
+            "cellOptions": {
+              "type": "auto"
+            },
+            "inspect": false
+          },
+          "mappings": [],
+          "thresholds": {
+            "mode": "absolute",
+            "steps": [
+              {
+                "color": "green",
+                "value": null
+              }
+            ]
+          }
+        },
+        "overrides": []
+      },
+      "gridPos": {
+        "h": 12,
+        "w": 12,
+        "x": 12,
+        "y": 42
+      },
+      "id": 14,
+      "options": {
+        "cellHeight": "sm",
+        "footer": {
+          "countRows": false,
+          "fields": "",
+          "reducer": [
+            "sum"
+          ],
+          "show": false
+        },
+        "showHeader": true
+      },
+      "pluginVersion": "11.0.0",
+      "targets": [
+        {
+          "azureLogAnalytics": {
+            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\" and SoftwareType in~ (\"Application\", \"Package\")\n| where TimeGenerated >= ago(${inventoryFreshness:raw})\n| where isempty(${computerSearch:singlequote}) or Computer contains ${computerSearch:singlequote}\n| where isempty(${softwareSearch:singlequote}) or SoftwareName contains ${softwareSearch:singlequote}\n| summarize arg_max(TimeGenerated, *) by Computer, SoftwareName, CurrentVersion\n| project Computer, SoftwareName, CurrentVersion, Publisher, Architecture, SoftwareDescription, LastObserved = TimeGenerated, ResourceId = _ResourceId\n| sort by Computer asc, SoftwareName asc",
+            "resultFormat": "table",
+            "resources": [ "$workspaceResourceId" ]
+          },
+          "datasource": {
+            "type": "grafana-azure-monitor-datasource",
+            "uid": "__AZURE_MONITOR_DATASOURCE_UID__"
+          },
+          "queryType": "Azure Log Analytics",
+          "refId": "A",
+          "subscription": "$subscription"
+        }
+      ],
+      "title": "Software by computer",
+      "type": "table"
+    }
+  ],
+  "refresh": "30m",
+  "schemaVersion": 39,
+  "tags": [
+    "azure",
+    "azure-update-manager",
+    "change-tracking",
+    "configurationdata"
+  ],
+  "templating": {
+    "list": [
+      {
+        "current": {
+          "selected": true,
+          "text": "__AZURE_SUBSCRIPTION_ID__",
+          "value": "__AZURE_SUBSCRIPTION_ID__"
+        },
+        "hide": 2,
+        "label": "Azure subscription",
+        "name": "subscription",
+        "query": "__AZURE_SUBSCRIPTION_ID__",
+        "skipUrlSync": true,
+        "type": "constant"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "__LOG_ANALYTICS_WORKSPACE_RESOURCE_ID__",
+          "value": "__LOG_ANALYTICS_WORKSPACE_RESOURCE_ID__"
+        },
+        "hide": 2,
+        "label": "Log Analytics workspace resource ID",
+        "name": "workspaceResourceId",
+        "query": "__LOG_ANALYTICS_WORKSPACE_RESOURCE_ID__",
+        "skipUrlSync": true,
+        "type": "constant"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "2d",
+          "value": "2d"
+        },
+        "hide": 0,
+        "includeAll": false,
+        "label": "Current inventory window",
+        "multi": false,
+        "name": "inventoryFreshness",
+        "options": [
+          {
+            "selected": false,
+            "text": "1d",
+            "value": "1d"
+          },
+          {
+            "selected": true,
+            "text": "2d",
+            "value": "2d"
+          },
+          {
+            "selected": false,
+            "text": "7d",
+            "value": "7d"
+          },
+          {
+            "selected": false,
+            "text": "14d",
+            "value": "14d"
+          }
+        ],
+        "query": "1d,2d,7d,14d",
+        "skipUrlSync": false,
+        "type": "custom"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "label": "Computer contains",
+        "name": "computerSearch",
+        "options": [],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      },
+      {
+        "current": {
+          "selected": true,
+          "text": "",
+          "value": ""
+        },
+        "hide": 0,
+        "label": "Software contains",
+        "name": "softwareSearch",
+        "options": [],
+        "query": "",
+        "skipUrlSync": false,
+        "type": "textbox"
+      }
+    ]
+  },
+  "time": {
+    "from": "now-90d",
+    "to": "now"
+  },
+  "timepicker": {
+    "refresh_intervals": [
+      "5m",
+      "15m",
+      "30m",
+      "1h",
+      "6h",
+      "12h",
+      "1d"
+    ]
+  },
+  "timezone": "browser",
+  "title": "Azure Update Manager - ConfigurationData",
+  "uid": "azure-update-manager-configurationdata",
+  "version": 1,
+  "weekStart": ""
+}
