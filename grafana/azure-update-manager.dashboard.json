@@ -468,7 +468,20 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "Server Type"
+            },
+            "properties": [
+              {
+                "id": "custom.align",
+                "value": "center"
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 10,
@@ -493,7 +506,7 @@
       "targets": [
         {
           "azureLogAnalytics": {
-            "query": "ConfigurationData\n| where ConfigDataType =~ \"Software\"\n| extend NormalizedResourceId = tolower(_ResourceId)\n| parse NormalizedResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/providers/\" AzureResourceProvider \"/\" AzureResourceKind \"/\" *\n| extend AzureResourceType = case(AzureResourceProvider =~ \"microsoft.compute\" and AzureResourceKind =~ \"virtualmachines\", \"Azure VM\", AzureResourceProvider =~ \"microsoft.hybridcompute\" and AzureResourceKind =~ \"machines\", \"Arc server\", \"Other\")\n| summarize LastInventory = max(TimeGenerated), ResourceId = take_any(_ResourceId), SubscriptionId = take_any(AzureSubscriptionId), ResourceGroup = take_any(AzureResourceGroup), ResourceType = take_any(AzureResourceType) by Computer\n| where isempty(${computerSearch:singlequote}) or Computer contains ${computerSearch:singlequote}\n| extend InventoryAgeDays = datetime_diff(\"day\", now(), LastInventory)\n| extend InventoryState = iff(LastInventory >= ago(${inventoryFreshness:raw}), \"Current\", \"Stale\")\n| project Computer, InventoryState, LastInventory, InventoryAgeDays, SubscriptionId, ResourceGroup, ResourceType, ResourceId\n| sort by InventoryState asc, LastInventory desc",
+            "query": "let MachineOperatingSystems = Heartbeat\n| where TimeGenerated > ago(30d)\n| where isnotempty(OSName) or isnotempty(OSType)\n| where isnotempty(_ResourceId) or isnotempty(Computer)\n| extend OSJoinKey = iff(isnotempty(_ResourceId), strcat(\"resource:\", tolower(_ResourceId)), strcat(\"computer:\", tolower(Computer)))\n| summarize arg_max(TimeGenerated, OSName, OSType, OSMajorVersion, OSMinorVersion) by OSJoinKey\n| extend OSVersion = strcat(OSMajorVersion, iff(isnotempty(OSMajorVersion) and isnotempty(OSMinorVersion), strcat(\".\", OSMinorVersion), \"\"))\n| extend OSLabel = coalesce(OSName, OSType)\n| project OSJoinKey, OperatingSystem = iff(isnotempty(OSVersion) and not(OSLabel contains OSVersion), strcat(OSLabel, \" (\", OSVersion, \")\"), OSLabel);\nConfigurationData\n| where ConfigDataType =~ \"Software\"\n| extend NormalizedResourceId = tolower(_ResourceId)\n| parse NormalizedResourceId with \"/subscriptions/\" AzureSubscriptionId \"/resourcegroups/\" AzureResourceGroup \"/providers/\" AzureResourceProvider \"/\" AzureResourceKind \"/\" *\n| extend AzureResourceType = case(AzureResourceProvider =~ \"microsoft.compute\" and AzureResourceKind =~ \"virtualmachines\", \"Azure VM\", AzureResourceProvider =~ \"microsoft.hybridcompute\" and AzureResourceKind =~ \"machines\", \"Arc server\", \"Other\")\n| summarize LastInventory = max(TimeGenerated), ResourceId = take_any(_ResourceId), SubscriptionId = take_any(AzureSubscriptionId), ResourceGroup = take_any(AzureResourceGroup), ResourceType = take_any(AzureResourceType) by Computer\n| where isempty(${computerSearch:singlequote}) or Computer contains ${computerSearch:singlequote}\n| extend InventoryAgeDays = datetime_diff(\"day\", now(), LastInventory)\n| extend InventoryState = iff(LastInventory >= ago(${inventoryFreshness:raw}), \"Current\", \"Stale\")\n| extend OSJoinKey = iff(isnotempty(ResourceId), strcat(\"resource:\", tolower(ResourceId)), strcat(\"computer:\", tolower(Computer)))\n| join kind=leftouter MachineOperatingSystems on OSJoinKey\n| extend OperatingSystem = coalesce(OperatingSystem, \"Unknown\")\n| extend VMType = case(ResourceType =~ \"Azure VM\", \"Azure\", ResourceType =~ \"Arc server\", \"Arc\", \"Unknown\")\n| project Computer, OperatingSystem, ['Server Type'] = VMType, InventoryState, LastInventory, InventoryAgeDays, SubscriptionId, ResourceGroup, ResourceType, ResourceId\n| sort by InventoryState asc, LastInventory desc",
             "resultFormat": "table",
             "resources": [ "$workspaceResourceId" ]
           },

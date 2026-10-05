@@ -87,6 +87,8 @@ jobs:
             throw 'The Grafana dashboard must not contain unresolved datasource inputs.'
           }
 
+          ./scripts/Test-InventoryOperatingSystem.ps1
+
       - name: Validate PowerShell syntax
         shell: pwsh
         run: |
@@ -107,3 +109,7 @@ jobs:
         run: |
           mkdir -p .build
           az bicep build --file infra/main.bicep --outfile .build/main.json
+
+      - name: Validate rebuilt inventory OS contract
+        shell: pwsh
+        run: ./scripts/Test-InventoryOperatingSystem.ps1 -TemplatePath .build/main.json

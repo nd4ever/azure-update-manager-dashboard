@@ -45,7 +45,7 @@ assessment. The Grafana dashboard does not.
 | Data source | Provides | Used by |
 |-------------|----------|---------|
 | Change Tracking and Inventory in Log Analytics (`ConfigurationData`) | Installed updates, installed software, applications, and packages | Workbook and Grafana |
-| Log Analytics `Heartbeat` | Operating system names for the operating system filter | Workbook |
+| Log Analytics `Heartbeat` | Operating system names and versions for inventory tables; operating system filter for baseline compliance | Workbook and Grafana |
 | Azure Resource Graph `Resources` | Workspace selection and resource region filtering | Workbook |
 | Azure Resource Graph `patchassessmentresources` | Azure Update Manager pending-update assessment for applicability-aware baseline compliance | Workbook |
 
@@ -73,10 +73,32 @@ operating system filter. Among the filters, the workspace picker and region filt
 query Azure Resource Graph, the operating system filter queries `Heartbeat`, and the
 rest are static choices or free text.
 
-Every Grafana panel queries `ConfigurationData` only. Grafana uses no Azure Resource
+Every Grafana panel queries `ConfigurationData`. The **Inventory state by computer**
+table also reads `Heartbeat` to display **OperatingSystem** immediately after
+**Computer**, followed by **Server Type**, as does the corresponding Workbook table.
+**Server Type** is `Azure` for native Azure VMs (`Microsoft.Compute/virtualMachines`),
+`Arc` for connected servers (`Microsoft.HybridCompute/machines`), and `Unknown` for
+other or missing resource types. It reuses the resource-ID-derived classification;
+the existing **ResourceType** column and filters remain unchanged. Grafana uses no Azure Resource
 Graph, because `arg()` cross-service queries are not available through the Log
 Analytics query API that the Grafana Azure Monitor data source uses. Its baseline
 compliance is therefore inventory-only.
+
+Grafana centers the **Server Type** column with a per-field alignment override;
+other columns retain their existing alignment. The Workbook uses its default
+text alignment because a supported per-column centering option is not documented.
+
+The inventory tables use the latest populated OS metadata from `Heartbeat` within
+the last 30 days (and the selected query history range). They display `OSName`, falling
+back to `OSType`, and append the reported major/minor version when it is not already
+in the label. This supports Windows and Linux on both Azure VMs and Arc servers.
+Matching uses the case-insensitive full resource ID, or the case-insensitive full
+computer name only when both records lack a resource ID; short names are not used to
+guess identity across resources. Missing or unmatched OS metadata displays `Unknown`
+without dropping inventory rows or changing freshness, counts, or scoping. Query
+access to `Heartbeat` is required; an unavailable table or denied access remains a
+query error. The Workbook's existing **Operating system** dropdown continues to
+scope baseline compliance only, not the inventory table.
 
 ## Data boundary
 
@@ -205,12 +227,26 @@ infra/main.json
 infra/main.sample.bicepparam
 infra/modules/log-analytics-monitoring-reader.bicep
 scripts/Import-GrafanaDashboard.ps1
+scripts/Test-InventoryOperatingSystem.ps1
 workbook/azure-update-manager.workbook.json
 ```
+
+The dashboard JSON files contain the report KQL directly. Bicep loads the Workbook
+JSON, while the import script consumes the Grafana JSON. After editing the Workbook,
+regenerate the checked-in ARM template and check the inventory OS contract locally:
+
+```powershell
+az bicep build --file infra/main.bicep --outfile infra/main.json
+./scripts/Test-InventoryOperatingSystem.ps1
+```
+
+CI also checks the inventory query's column order, row-preserving OS enrichment,
+shared enrichment logic, unchanged filter boundaries, and rebuilt ARM template.
 
 ## References
 
 * [ConfigurationData table reference](https://learn.microsoft.com/azure/azure-monitor/reference/tables/configurationdata)
+* [Heartbeat table reference](https://learn.microsoft.com/azure/azure-monitor/reference/tables/heartbeat)
 * [Change Tracking and Inventory overview](https://learn.microsoft.com/azure/azure-change-tracking-inventory/overview-monitoring-agent)
 * [Configuration Manager built-in reports](https://learn.microsoft.com/intune/configmgr/core/servers/manage/list-of-reports)
 * [Create or import Azure Managed Grafana dashboards](https://learn.microsoft.com/azure/managed-grafana/how-to-create-dashboard)
