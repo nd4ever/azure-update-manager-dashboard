@@ -560,7 +560,26 @@
             ]
           }
         },
-        "overrides": []
+        "overrides": [
+          {
+            "matcher": {
+              "id": "byName",
+              "options": "UpdateIdentity"
+            },
+            "properties": [
+              {
+                "id": "links",
+                "value": [
+                  {
+                    "targetBlank": true,
+                    "title": "View CVEs in Microsoft Security Update Guide",
+                    "url": "https://msrc.microsoft.com/update-guide/en-US/search?query=${__value.raw}"
+                  }
+                ]
+              }
+            ]
+          }
+        ]
       },
       "gridPos": {
         "h": 11,

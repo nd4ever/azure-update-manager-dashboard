@@ -54,7 +54,7 @@ var workloadTags = {
   workload: 'azure-update-manager-dashboard'
 }
 var workbookContent string = replace(
-  loadTextContent('../workbook/azure-update-manager.workbook.json'),
+  string(loadJsonContent('../workbook/azure-update-manager.workbook.json')),
   '__WORKSPACE_RESOURCE_ID__',
   logAnalyticsWorkspaceResourceId
 )

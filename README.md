@@ -1,7 +1,7 @@
 ---
 title: Azure Update Manager Dashboard
 description: SCCM-inspired Azure Workbook and Managed Grafana reports backed by Change Tracking and Inventory data in Log Analytics
-ms.date: 2026-09-30
+ms.date: 2026-10-15
 ms.topic: overview
 ---
 
@@ -22,6 +22,7 @@ The Azure Workbook includes:
 * Inventory summary and reporting freshness
 * SCCM-style scan and inventory state by computer
 * Applicability-aware KB baseline compliance
+* Current Microsoft security release KB-to-CVE mapping
 * Installed update summary and per-computer detail
 * Historical update adoption by first observation
 * Installed software summary and per-computer detail
@@ -31,6 +32,7 @@ The Grafana dashboard includes:
 * Inventory health statistics and reporting trends
 * Inventory state by computer
 * Installed update summary and adoption history
+* KB drill-through to the Microsoft Security Update Guide CVE search
 * Installed software summary and per-computer detail
 * Inventory-based baseline compliance against a user-supplied KB list
 * Drill-through links from table cells to Azure Monitor Logs
@@ -48,6 +50,7 @@ assessment. The Grafana dashboard does not.
 | Log Analytics `Heartbeat` | Operating system names and versions for inventory tables; operating system filter for baseline compliance | Workbook and Grafana |
 | Azure Resource Graph `Resources` | Workspace selection and resource region filtering | Workbook |
 | Azure Resource Graph `patchassessmentresources` | Azure Update Manager pending-update assessment for applicability-aware baseline compliance | Workbook |
+| Public MSRC CVRF feed snapshot | Current Microsoft security release CVEs and remediation KBs | Workbook |
 
 ### Which report reads from which source
 
@@ -62,6 +65,7 @@ backs only the two baseline compliance reports.
 | Inventory state by computer | Inventory records | `Resources` for the region filter |
 | Overall compliance | Installed updates | `patchassessmentresources` for pending updates, plus `Resources` for the region filter |
 | Computer compliance details | Installed updates | `patchassessmentresources` for pending updates, plus `Resources` for the region filter |
+| Current security release KB-to-CVE mapping | Not used | Embedded public MSRC CVRF snapshot |
 | Installed update summary | Installed updates | `Resources` for the region filter |
 | Historical update adoption | Installed updates | `Resources` for the region filter |
 | Installed updates by computer | Installed updates | `Resources` for the region filter |
@@ -99,6 +103,25 @@ without dropping inventory rows or changing freshness, counts, or scoping. Query
 access to `Heartbeat` is required; an unavailable table or denied access remains a
 query error. The Workbook's existing **Operating system** dropdown continues to
 scope baseline compliance only, not the inventory table.
+The Workbook embeds a compact snapshot generated from the public MSRC CVRF feed. The
+table lists each remediation KB with its announced CVEs, CVE count, maximum CVSS base
+score, and an MSRC search link. Embedding the data avoids browser CORS restrictions
+on the MSRC API and does not require another Azure resource. Refresh the snapshot
+after Patch Tuesday or when MSRC revises a release:
+
+CVE sets use lossless grouped notation to keep the Workbook within Azure deployment
+limits. For example, `CVE-2026-{100,200}` represents `CVE-2026-100` and
+`CVE-2026-200`.
+
+```powershell
+./scripts/Update-MsrcSnapshot.ps1 -Release 2026-Oct
+```
+
+Grafana does not embed the snapshot because the bundled dashboard intentionally
+requires only the built-in Azure Monitor data source. Select a KB in its installed
+update summary to open the corresponding Microsoft Security Update Guide search in a
+new tab.
+
 
 ## Data boundary
 
@@ -252,6 +275,7 @@ shared enrichment logic, unchanged filter boundaries, and rebuilt ARM template.
 * [Create or import Azure Managed Grafana dashboards](https://learn.microsoft.com/azure/managed-grafana/how-to-create-dashboard)
 * [Configure Managed Grafana access to Azure Monitor](https://learn.microsoft.com/azure/managed-grafana/how-to-permissions)
 * [Azure Workbooks data sources](https://learn.microsoft.com/azure/azure-monitor/visualize/workbooks-data-sources)
+* [MSRC Security Update Guide API](https://github.com/microsoft/MSRC-Microsoft-Security-Updates-API)
 
 ## License
 

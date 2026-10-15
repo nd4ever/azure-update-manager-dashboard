@@ -29,14 +29,40 @@ jobs:
             throw 'The Workbook must contain at least one query item.'
           }
 
-          $invalidQueries = @($queries | Where-Object {
+          $snapshotQueryName = 'current-security-release-kb-cve-mapping'
+          $logQueries = @($queries | Where-Object { $_.name -ne $snapshotQueryName })
+          $invalidQueries = @($logQueries | Where-Object {
             $_.content.queryType -ne 0 -or
             $_.content.resourceType -cne 'microsoft.operationalinsights/workspaces' -or
             $_.content.query -notmatch '\bConfigurationData\b'
           })
 
           if ($invalidQueries.Count -gt 0) {
-            throw 'Every query must use the Log Analytics ConfigurationData table.'
+            throw 'Every inventory query must use the Log Analytics ConfigurationData table.'
+          }
+
+          $snapshotQueries = @($queries | Where-Object { $_.name -eq $snapshotQueryName })
+          if ($snapshotQueries.Count -ne 1 -or $snapshotQueries[0].content.queryType -ne 8) {
+            throw 'The Workbook must contain exactly one static MSRC snapshot query.'
+          }
+
+          $snapshotQuery = $snapshotQueries[0].content.query | ConvertFrom-Json
+          $snapshotRows = @($snapshotQuery.content | ConvertFrom-Json)
+          if (
+            $snapshotQuery.version -cne '1.0.0' -or
+            $snapshotRows.Count -lt 1 -or
+            @($snapshotRows | Where-Object {
+              [string]::IsNullOrWhiteSpace($_.Release) -or
+              $_.KB -notmatch '^KB\d{6,8}$' -or
+              $_.CVECount -lt 1 -or
+              $_.CVEs -notmatch '\bCVE-\d{4}-\{\d+'
+            }).Count -gt 0
+          ) {
+            throw 'The embedded MSRC snapshot has an invalid shape.'
+          }
+
+          if (($workbook | ConvertTo-Json -Depth 100) -match 'api\.msrc\.microsoft\.com') {
+            throw 'The Workbook must not call the CORS-restricted MSRC API at runtime.'
           }
 
           $baselineQueryNames = @(
@@ -88,20 +114,31 @@ jobs:
           }
 
           ./scripts/Test-InventoryOperatingSystem.ps1
+          $msrcLink = 'https://msrc.microsoft.com/update-guide/en-US/search?query=${__value.raw}'
+          if ($grafanaSource -notlike "*$msrcLink*") {
+            throw 'The Grafana update summary must link KB values to the Microsoft Security Update Guide.'
+          }
 
       - name: Validate PowerShell syntax
         shell: pwsh
         run: |
           $tokens = $null
           $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile(
-            (Resolve-Path scripts/Import-GrafanaDashboard.ps1),
-            [ref]$tokens,
-            [ref]$errors
-          ) | Out-Null
+          foreach ($script in @(
+            'scripts/Import-GrafanaDashboard.ps1'
+            'scripts/Update-MsrcSnapshot.ps1'
+          )) {
+            $tokens = $null
+            $errors = $null
+            [System.Management.Automation.Language.Parser]::ParseFile(
+              (Resolve-Path $script),
+              [ref]$tokens,
+              [ref]$errors
+            ) | Out-Null
 
-          if ($errors.Count -gt 0) {
-            throw ($errors | ForEach-Object Message) -join "`n"
+            if ($errors.Count -gt 0) {
+              throw "$script`n$(($errors | ForEach-Object Message) -join "`n")"
+            }
           }
 
       - name: Build Bicep
