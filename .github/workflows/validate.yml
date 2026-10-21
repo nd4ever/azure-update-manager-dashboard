@@ -95,11 +95,43 @@ jobs:
 
           $invalidGrafanaTargets = @($grafanaTargets | Where-Object {
             $_.queryType -cne 'Azure Log Analytics' -or
-            $_.datasource.type -cne 'grafana-azure-monitor-datasource' -or
-            $_.azureLogAnalytics.query -notmatch '\bConfigurationData\b'
+            $_.datasource.type -cne 'grafana-azure-monitor-datasource'
           })
           if ($invalidGrafanaTargets.Count -gt 0) {
-            throw 'Every Grafana query must use Azure Monitor Logs and ConfigurationData.'
+            throw 'Every Grafana query must use Azure Monitor Logs.'
+          }
+
+          $grafanaSnapshot = @($grafana.panels | Where-Object { $_.id -eq 19 })
+          if (
+            $grafanaSnapshot.Count -ne 1 -or
+            $grafanaSnapshot[0].targets.Count -ne 1 -or
+            $grafanaSnapshot[0].type -cne 'table' -or
+            $grafanaSnapshot[0].fieldConfig.defaults.custom.filterable -ne $true
+          ) {
+            throw 'Grafana must contain one filterable MSRC snapshot table.'
+          }
+
+          $grafanaSnapshotQuery = $grafanaSnapshot[0].targets[0].azureLogAnalytics.query
+          if ($grafanaSnapshotQuery -notmatch '(?s)^print Snapshot = dynamic\((.+)\)\r?\n\| mv-expand Snapshot\r?\n\| project ') {
+            throw 'The Grafana MSRC snapshot must expand embedded JSON rows.'
+          }
+          $grafanaSnapshotJson = $Matches[1]
+          $grafanaSnapshotRows = @($grafanaSnapshotJson | ConvertFrom-Json)
+          if (
+            $grafanaSnapshotRows.Count -ne $snapshotRows.Count -or
+            (ConvertTo-Json -InputObject $grafanaSnapshotRows -Depth 5 -Compress) -cne
+            (ConvertTo-Json -InputObject $snapshotRows -Depth 5 -Compress)
+          ) {
+            throw 'Workbook and Grafana MSRC snapshots must contain identical rows.'
+          }
+
+          $invalidGrafanaInventoryTargets = @(
+            $grafana.panels | Where-Object { $_.id -ne 19 } |
+              ForEach-Object { @($_.targets) } |
+              Where-Object { $null -ne $_ -and $_.azureLogAnalytics.query -notmatch '\bConfigurationData\b' }
+          )
+          if ($invalidGrafanaInventoryTargets.Count -gt 0) {
+            throw 'Every Grafana inventory query must use ConfigurationData.'
           }
 
           $grafanaSource = Get-Content -Raw grafana/azure-update-manager.dashboard.json
@@ -117,6 +149,21 @@ jobs:
           $msrcLink = 'https://msrc.microsoft.com/update-guide/en-US/search?query=${__value.raw}'
           if ($grafanaSource -notlike "*$msrcLink*") {
             throw 'The Grafana update summary must link KB values to the Microsoft Security Update Guide.'
+          }
+
+          . ./scripts/Update-MsrcSnapshot.ps1
+          $temporaryDashboard = Join-Path ([IO.Path]::GetTempPath()) "aum-snapshot-test-$([guid]::NewGuid().ToString('N')).json"
+          try {
+            Copy-Item grafana/azure-update-manager.dashboard.json $temporaryDashboard
+            Update-GrafanaSnapshot -Path $temporaryDashboard -ReleaseId $snapshotRows[0].Release -Rows $snapshotRows
+            if ((Get-Content -Raw $temporaryDashboard) -cne $grafanaSource) {
+              throw 'Regenerating the Grafana snapshot must preserve the checked-in dashboard exactly.'
+            }
+          }
+          finally {
+            if (Test-Path -LiteralPath $temporaryDashboard) {
+              Remove-Item -LiteralPath $temporaryDashboard
+            }
           }
 
       - name: Validate PowerShell syntax

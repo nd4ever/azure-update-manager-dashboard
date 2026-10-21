@@ -30,8 +30,9 @@ The Azure Workbook includes:
 The Grafana dashboard includes:
 
 * Inventory health statistics and reporting trends
-* Inventory state by computer
+* Inventory state by computer, including operating system and Azure/Arc server type
 * Installed update summary and adoption history
+* Current Microsoft security release KB-to-CVE mapping with column filters
 * KB drill-through to the Microsoft Security Update Guide CVE search
 * Installed software summary and per-computer detail
 * Inventory-based baseline compliance against a user-supplied KB list
@@ -50,7 +51,7 @@ assessment. The Grafana dashboard does not.
 | Log Analytics `Heartbeat` | Operating system names and versions for inventory tables; operating system filter for baseline compliance | Workbook and Grafana |
 | Azure Resource Graph `Resources` | Workspace selection and resource region filtering | Workbook |
 | Azure Resource Graph `patchassessmentresources` | Azure Update Manager pending-update assessment for applicability-aware baseline compliance | Workbook |
-| Public MSRC CVRF feed snapshot | Current Microsoft security release CVEs and remediation KBs | Workbook |
+| Public MSRC CVRF feed snapshot | Current Microsoft security release CVEs and remediation KBs | Workbook and Grafana |
 
 ### Which report reads from which source
 
@@ -103,11 +104,13 @@ without dropping inventory rows or changing freshness, counts, or scoping. Query
 access to `Heartbeat` is required; an unavailable table or denied access remains a
 query error. The Workbook's existing **Operating system** dropdown continues to
 scope baseline compliance only, not the inventory table.
-The Workbook embeds a compact snapshot generated from the public MSRC CVRF feed. The
+
+Both dashboards embed a compact snapshot generated from the public MSRC CVRF feed. The
 table lists each remediation KB with its announced CVEs, CVE count, maximum CVSS base
 score, and an MSRC search link. Embedding the data avoids browser CORS restrictions
 on the MSRC API and does not require another Azure resource. Refresh the snapshot
-after Patch Tuesday or when MSRC revises a release:
+after Patch Tuesday or when MSRC revises a release, then redeploy the Workbook and
+reimport the Grafana dashboard:
 
 CVE sets use lossless grouped notation to keep the Workbook within Azure deployment
 limits. For example, `CVE-2026-{100,200}` represents `CVE-2026-100` and
@@ -117,10 +120,12 @@ limits. For example, `CVE-2026-{100,200}` represents `CVE-2026-100` and
 ./scripts/Update-MsrcSnapshot.ps1 -Release 2026-Oct
 ```
 
-Grafana does not embed the snapshot because the bundled dashboard intentionally
-requires only the built-in Azure Monitor data source. Select a KB in its installed
-update summary to open the corresponding Microsoft Security Update Guide search in a
-new tab.
+Grafana uses the existing Azure Monitor data source to expand the embedded snapshot
+with a KQL `print` query. It requires no additional plugin, external browser API call,
+or data ingestion. The release reference table is independent of dashboard time,
+computer, software, and baseline filters and does not evaluate machine exposure.
+Use its column filters to find a KB or CVE. Select a KB in either the snapshot or
+installed update summary to open the Microsoft Security Update Guide in a new tab.
 
 
 ## Data boundary
@@ -251,6 +256,7 @@ infra/main.sample.bicepparam
 infra/modules/log-analytics-monitoring-reader.bicep
 scripts/Import-GrafanaDashboard.ps1
 scripts/Test-InventoryOperatingSystem.ps1
+scripts/Update-MsrcSnapshot.ps1
 workbook/azure-update-manager.workbook.json
 ```
 
