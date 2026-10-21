@@ -76,12 +76,16 @@ if ($osParameter.query -notmatch 'OSType =~ "Windows"' -or
 
 $template = Get-Content -Raw $TemplatePath | ConvertFrom-Json
 $embeddedSources = @($template.variables.PSObject.Properties | Where-Object {
-    $_.Value -is [string] -and $_.Value -match '^\s*\{\s*"version"\s*:\s*"Notebook/1\.0"'
+    ($_.Value -is [string] -and $_.Value -match '^\s*\{\s*"version"\s*:\s*"Notebook/1\.0"') -or
+    ($_.Value -isnot [string] -and $_.Value.version -eq 'Notebook/1.0')
 })
 if ($embeddedSources.Count -ne 1) {
     throw 'The compiled Bicep template must contain exactly one embedded Workbook.'
 }
-$embeddedWorkbook = $embeddedSources[0].Value | ConvertFrom-Json
+$embeddedWorkbook = $embeddedSources[0].Value
+if ($embeddedWorkbook -is [string]) {
+    $embeddedWorkbook = $embeddedWorkbook | ConvertFrom-Json
+}
 $embeddedTable = $embeddedWorkbook.items | Where-Object { $_.name -eq 'inventory-health' }
 if ($embeddedTable.content.query -cne $queries[0]) {
     throw 'The compiled Bicep template must embed the updated Workbook inventory query.'
